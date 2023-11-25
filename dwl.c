@@ -122,6 +122,7 @@ typedef struct {
 	struct wl_listener set_decoration_mode;
 	struct wl_listener destroy_decoration;
 	struct wlr_box prev; /* layout-relative, includes border */
+	struct wlr_box preferred_size; /* layout-relative, includes border */
 	struct wlr_box bounds;
 #ifdef XWAYLAND
 	struct wl_listener activate;
@@ -1529,8 +1530,8 @@ mapnotify(struct wl_listener *listener, void *data)
 
 	/* Initialize client geometry with room for border */
 	client_set_tiled(c, WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT | WLR_EDGE_RIGHT);
-	c->geom.width += 2 * c->bw;
-	c->geom.height += 2 * c->bw;
+	c->preferred_size.width = c->geom.width += 2 * c->bw;
+	c->preferred_size.height = c->geom.height += 2 * c->bw;
 
 	/* Insert this client into client lists. */
 	i = 0;
@@ -1547,8 +1548,8 @@ mapnotify(struct wl_listener *listener, void *data)
 		wl_list_insert(&clients, &c->link);
 	wl_list_insert(&fstack, &c->flink);
 
-	c->geom.x = (m->w.width - c->geom.width) / 2 + m->m.x;
-	c->geom.y = (m->w.height - c->geom.height) / 2 + m->m.y;
+	c->preferred_size.x = c->geom.x = (m->w.width - c->geom.width) / 2 + m->m.x;
+	c->preferred_size.y = c->geom.y = (m->w.height - c->geom.height) / 2 + m->m.y;
 
 	/* Set initial monitor, tags, floating status, and focus:
 	 * we always consider floating, clients that have parent and thus
@@ -2515,8 +2516,12 @@ togglefloating(const Arg *arg)
 {
 	Client *sel = focustop(selmon);
 	/* return if fullscreen */
-	if (sel && !sel->isfullscreen)
+	if (sel && !sel->isfullscreen) {
 		setfloating(sel, !sel->isfloating);
+		
+		if (sel->isfloating) 
+			resize(sel, sel->preferred_size, 1);
+	}
 }
 
 void
